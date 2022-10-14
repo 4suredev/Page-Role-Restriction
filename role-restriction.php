@@ -10,6 +10,14 @@
 // Constants
 define('ACC_PLUGIN_PATH', plugin_dir_url( __FILE__ ));
 define('ACC_PLUGIN_FILE', ACC_PLUGIN_PATH.'role-restriction.php');
+include_once( plugin_dir_path( __FILE__ ) . 'updater.php');
+$updater = new Page_role_restriction_updater( __FILE__ ); 
+$updater->set_username( '4suredev' ); 
+$updater->set_repository( 'Page-Role-Restriction' ); 
+$updater->initialize(); 
+if( ! class_exists( 'Page_role_restriction_updater' ) ){
+	include_once( plugin_dir_path( __FILE__ ) . 'updater.php' );
+}
 // Handle plugin activation
 register_activation_hook( __FILE__, function() {
     if ( ! is_plugin_active( 'advanced-custom-fields-pro/acf.php' ) and current_user_can( 'activate_plugins' ) ) {
