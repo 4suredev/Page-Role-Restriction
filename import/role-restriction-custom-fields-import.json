@@ -183,25 +183,6 @@
                 "delay": 0
             },
             {
-                "key": "field_61f1f3959a68b",
-                "label": "Page content target element",
-                "name": "target_element",
-                "type": "text",
-                "instructions": "Enter the css target where the page content appears",
-                "required": 0,
-                "conditional_logic": 0,
-                "wrapper": {
-                    "width": "",
-                    "class": "",
-                    "id": ""
-                },
-                "default_value": "body .post-content",
-                "placeholder": "",
-                "prepend": "",
-                "append": "",
-                "maxlength": ""
-            },
-            {
                 "key": "field_61f1f3959acss",
                 "label": "Page Custom CSS",
                 "name": "custom_css",

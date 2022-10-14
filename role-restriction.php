@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 1.0.0
+ * Version: 2.0.0
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -25,7 +25,7 @@ register_activation_hook( __FILE__, function() {
         wp_die('Sorry, but this plugin requires ACF pro to be installed and active. <br><a href="' . admin_url( 'plugins.php' ) . '">&laquo; Return to Plugins</a>');
     }
 });
-acc_import_acf_fields();
+add_action('acf/init', 'acc_import_acf_fields');
 function acc_import_acf_fields(){
     if ( function_exists( 'acf_add_options_page' ) ) {
         acf_add_options_page(
@@ -69,202 +69,6 @@ function get_page_list( $field ) {
     return $field;
 }
 add_filter('acf/load_field/name=redirect_slug', 'get_page_list');
-// REDIRECTION FUNCTION FOR PAGES IF THEY HAVE ROLE RESTRICTION VALUES
-function redirect_by_role(){
-    $restrict_method = get_field( 'restriction_method', 'options');
-    $show_error_message = get_field( 'show_error_message', 'options');
-    $error_message_background_color = get_field( 'error_message_background_color', 'options');
-    $error_message_text_color = get_field( 'error_message_text_color', 'options');
-    $error_message = get_field( 'pagepost_access_denied', 'options' );
-    $redirect_slug = get_field( 'redirect_slug', 'options' );
-    $additional_content = get_field( 'additional_content', 'options' , false);
-    $target_element = get_field( 'target_element', 'options' );
-    $role_restrictions = (array) get_field('user_role');
-    $user = wp_get_current_user();
-    $user_roles = (array) $user->roles;
-    if (count($role_restrictions) >= 1){ // checks every post and page if it has restrictions
-        $matched_roles = array_intersect($role_restrictions, $user_roles);
-        if (count($matched_roles) == 0){
-            if ($restrict_method == 'redirect'){
-                wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path here
-            }else if ($restrict_method == 'stay'){
-                if ($show_error_message){
-                    echo  '<style>
-                        @keyframes placeHolderShimmer{
-                            0%{
-                                background-position: -1200px 0
-                            }
-                            100%{
-                                background-position: 1200px 0
-                            }
-                        }
-                        .access-error-message{
-                            color: '.$error_message_text_color.';
-                            background: '.$error_message_background_color.';
-                            padding: 30px;
-                            text-align: center;
-                            pointer-events: none;
-                        }
-                        .gform_wrapper{ display: none; }
-                        '.$target_element.' > *{
-                            opacity: 0;
-                            transition: all ease-in .6s;
-                        }
-                        '.$target_element.'::before{
-                            content: "";
-                            width: 100%;
-                            height: 20px;
-                            position: absolute;
-                            top: -30px;
-                            border-radius: 10px;
-                            animation-duration: 3.5s;
-                            animation-fill-mode: forwards;
-                            animation-iteration-count: infinite;
-                            animation-name: placeHolderShimmer;
-                            animation-timing-function: linear;
-                            background: darkgray;
-                            background: linear-gradient(to right, #eeeeee 10%, #dddddd 18%, #eeeeee 33%);
-                            transition: opacity ease-out .3s;
-                        }
-                        '.$target_element.'.loaded::before{opacity: 0;}
-                    </style>';
-                    if ($additional_content != ""){
-                        preg_match_all('#\[(.*?)\]#', $additional_content, $match);
-                        $gravityforms = array();
-                        foreach($match[0] as $shortcode){
-                            $shortcode_type = substr($shortcode, strpos($shortcode, "[") + 1);    
-                            $shortcode_type = substr( $shortcode_type, 0, 12 );
-                            if ($shortcode_type != 'gravityforms'){
-                                $additional_content = str_replace($shortcode, do_shortcode($shortcode), $additional_content);
-                            }else{
-                                echo '<style>.gform_wrapper{display: none;}</style>';
-                                $gform_id_1 = get_string_between($shortcode, 'id=', ']');
-                                $gform_id_2 = get_string_between($shortcode, 'id=', ' ');
-                                if ($gform_id_1 != false){$gform_id = $gform_id_1;}
-                                if ($gform_id_2 != false){$gform_id = $gform_id_2;}
-                                gravity_form( $gform_id, $display_title = false, $display_description = false, $display_inactive = false, $field_values = null, $ajax = false, $tabindex, $echo = true );
-                                $additional_content = str_replace($shortcode, '<div class="embed-form-'.$gform_id.'"></div>', $additional_content);
-                                array_push($gravityforms, $gform_id);
-                            }
-                        }
-                        $additional_content = str_replace(array("\r", "\n"), '', $additional_content);
-                    }
-                    echo "<script type='text/javascript'>
-                    document.addEventListener('DOMContentLoaded', function(event) { 
-                        jQuery(document).ready(function($){
-                            $('".$target_element."').html('');
-                            $('".$target_element."').prepend('<div class=\"access-error-message\">".$error_message."</div><div class=\"additional-content\"></div>');";
-                    echo "$('.additional-content').html('".trim($additional_content)."');";
-                    foreach($gravityforms as $form){
-                        echo "$('#gform_wrapper_".$form."').appendTo($('.embed-form-".$form."'));";
-                        echo "$('#gform_wrapper_".$form."').css('display','block');";
-                    }
-                    echo "$('".$target_element.">*').animate({opacity: 1}, 400);";
-                    echo "$('".$target_element."').addClass('loaded');";
-                    echo "});});</script>";
-                }else{
-                    echo "<script type='text/javascript'>
-                    document.addEventListener('DOMContentLoaded', function(event) { 
-                        jQuery(document).ready(function($){
-                            $('".$target_element."').html('');
-                        });
-                    });
-                    </script>";
-                }
-    
-            }  
-        }else{
-            foreach($matched_roles as $role){
-                //per role validation here
-                // if ($role == "role1"){}
-                // else if ($role == "role2"){}
-                // else{}
-            }
-        }
-    }
-    if ($restrict_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
-        if ($show_error_message){
-            echo  '<style>
-                .access-error-message{
-                    color: '.$error_message_text_color.';
-                    background:  '.$error_message_background_color.';
-                    padding: 30px;
-                    text-align: center;
-                    pointer-events: none;
-                }
-                .gform_wrapper{ display: none; }
-                '.$target_element.' > *{
-                    opacity: 0;
-                    transition: all ease-in .6s;
-                }
-                '.$target_element.'::before{
-                    content: "";
-                    width: 100%;
-                    height: 20px;
-                    position: absolute;
-                    top: -30px;
-                    border-radius: 10px;
-                    animation-duration: 3.5s;
-                    animation-fill-mode: forwards;
-                    animation-iteration-count: infinite;
-                    animation-name: placeHolderShimmer;
-                    animation-timing-function: linear;
-                    background: darkgray;
-                    background: linear-gradient(to right, #eeeeee 10%, #dddddd 18%, #eeeeee 33%);
-                    transition: opacity ease-out .3s;
-                }
-                '.$target_element.'.loaded::before{opacity: 0;}
-            </style>';
-            if ($additional_content != ""){
-                preg_match_all('#\[(.*?)\]#', $additional_content, $match);
-                $gravityforms = array();
-                foreach($match[0] as $shortcode){
-                    preg_match_all('#\[(.*?)\]#', $additional_content, $match);
-                    foreach($match[0] as $shortcode){
-                        $shortcode_type = substr($shortcode, strpos($shortcode, "[") + 1);    
-                        $shortcode_type = substr( $shortcode_type, 0, 12 );
-                        if ($shortcode_type != 'gravityforms'){
-                            $additional_content = str_replace($shortcode, do_shortcode($shortcode), $additional_content);
-                        }else{
-                            echo '<style>.gform_wrapper{display: none;}</style>';
-                            $gform_id_1 = get_string_between($shortcode, 'id=', ']');
-                            $gform_id_2 = get_string_between($shortcode, 'id=', ' ');
-                            if ($gform_id_1 != false){$gform_id = $gform_id_1;}
-                            if ($gform_id_2 != false){$gform_id = $gform_id_2;}
-                            gravity_form( $gform_id, $display_title = false, $display_description = false, $display_inactive = false, $field_values = null, $ajax = false, $tabindex, $echo = true );
-                            $additional_content = str_replace($shortcode, '<div class="embed-form-'.$gform_id.'"></div>', $additional_content);
-                            array_push($gravityforms, $gform_id);
-                        }
-                    }
-                    $additional_content = str_replace(array("\r", "\n"), '', $additional_content);
-                }
-                $additional_content = str_replace(array("\r", "\n"), '', $additional_content);
-            }
-            echo "<script type='text/javascript'>
-                    document.addEventListener('DOMContentLoaded', function(event) { 
-                        jQuery(document).ready(function($){
-                            $('".$target_element."').prepend('<div class=\"access-error-message\">".$error_message."</div><div class=\"additional-content\"></div>');";
-            echo "$('.additional-content').html('".trim($additional_content)."');";
-            foreach($gravityforms as $form){
-                echo "$('#gform_wrapper_".$form."').appendTo($('.embed-form-".$form."'));";
-                echo "$('#gform_wrapper_".$form."').css('display','block');";
-            }
-            echo "$('".$target_element." > *').animate({opacity: 1}, 400);";
-            echo "$('".$target_element."').addClass('loaded');";
-            echo "});});</script>";
-        }else{
-            echo "<script type='text/javascript'>
-            document.addEventListener('DOMContentLoaded', function(event) { 
-                jQuery(document).ready(function($){
-                    $('".$target_element."').html('');
-                });
-            });
-            </script>";
-        }
-        
-    }
-}
-add_action('template_redirect', 'redirect_by_role');
 function get_string_between($string, $start, $end){
     $string = ' ' . $string;
     $ini = strpos($string, $start);
@@ -272,4 +76,85 @@ function get_string_between($string, $start, $end){
     $ini += strlen($start);
     $len = strpos($string, $end, $ini) - $ini;
     return substr($string, $ini, $len);
+}
+// REDIRECTION FILTER FOR PAGES IF THEY HAVE ROLE RESTRICTION VALUES
+add_filter('the_content', 'role_restriction_filter_content');
+function role_restriction_filter_content($content){
+    if (in_the_loop()){ //only affeect the body content
+        $restrict_method = get_field( 'restriction_method', 'options');
+        $show_error_message = get_field( 'show_error_message', 'options');
+        $error_message_background_color = get_field( 'error_message_background_color', 'options');
+        $error_message_text_color = get_field( 'error_message_text_color', 'options');
+        $error_message = get_field( 'pagepost_access_denied', 'options' );
+        $redirect_slug = get_field( 'redirect_slug', 'options' );
+        $additional_content = get_field( 'additional_content', 'options' , false);
+        $role_restrictions = (array) get_field('user_role');
+        $user = wp_get_current_user();
+        $user_roles = (array) $user->roles;
+        if($additional_content != ''){$margin = '100px';}
+        else{$margin = '0';}
+        echo  '<style>
+                .access-error-message{
+                    color: '.$error_message_text_color.';
+                    background:  '.$error_message_background_color.';
+                    padding: 30px;
+                    text-align: center;
+                    pointer-events: none;
+                    margin-bottom: '.$margin.';
+                }                   
+            </style>';
+        if (count($role_restrictions) >= 1){ // checks every post and page if it has restrictions
+            $matched_roles = array_intersect($role_restrictions, $user_roles);
+            if (count($matched_roles) == 0){
+                if ($restrict_method == 'redirect'){
+                    wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path here
+                }else if ($restrict_method == 'stay'){
+                    if ($show_error_message){
+                        $content = '<div class="access-error-message">'.$error_message.'</div>';
+                        if ($additional_content != ""){
+                            $content .= $additional_content;
+                        }
+                    
+                    }else{
+                        
+                    }
+        
+                }  
+            }else{
+                foreach($matched_roles as $role){
+                    //per role validation here
+                    // if ($role == "role1"){}
+                    // else if ($role == "role2"){}
+                    // else{}
+                }
+            }
+        }
+        if ($restrict_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
+            if ($show_error_message){
+                $content = '<div class="access-error-message">'.$error_message.'</div>'.$content;
+                echo '<style>.access-error-message{margin-top: 100px;}</style>';
+                echo "<script type='text/javascript'>
+                    document.addEventListener('DOMContentLoaded', function(event) { 
+                        jQuery(document).ready(function(){
+                            timeout = setTimeout(hideMessage, 3000);
+                        });
+                        function hideMessage(){
+                            jQuery('.access-error-message').animate({
+                                'opacity'   : 0, 
+                                'height'    : 0, 
+                                'padding'   : 0, 
+                                'margin'    : 0
+                            }, 1000, updateUrl);
+                        }
+                        function updateUrl(){
+                            jQuery('.access-error-message').remove();
+                            var url = window.location.href;
+                            url = url.split('?')[0];
+                            window.history.replaceState({}, null, url);
+                        }
+                    });
+                    </script>";
+                }
+        }
+    }return $content;
 }
