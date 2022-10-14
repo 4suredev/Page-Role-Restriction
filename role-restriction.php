@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 2.0.0
+ * Version: 2.0.1
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -91,6 +91,7 @@ function role_restriction_filter_content($content){
         $role_restrictions = (array) get_field('user_role');
         $user = wp_get_current_user();
         $user_roles = (array) $user->roles;
+        $custom_css = get_field('custom_css', 'options');
         if($additional_content != ''){$margin = '100px';}
         else{$margin = '0';}
         echo  '<style>
@@ -103,6 +104,7 @@ function role_restriction_filter_content($content){
                     margin-bottom: '.$margin.';
                 }                   
             </style>';
+        if($custom_css != ""){echo "<style>".$custom_css."</style>";}   
         if (count($role_restrictions) >= 1){ // checks every post and page if it has restrictions
             $matched_roles = array_intersect($role_restrictions, $user_roles);
             if (count($matched_roles) == 0){
