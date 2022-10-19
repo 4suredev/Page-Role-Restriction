@@ -39,10 +39,10 @@ function acc_import_acf_fields(){
             )
         );
     }
-    include 'import/role-restriction-custom-fields-import.php';
+    include 'import/role-restriction-custom-fields-import.php'; //import acf fieldgroups
 }
-// POPULATE CUSTOM FIELD CHECKBOX VALUES WITH USER ROLES
-function get_all_user_roles( $field ) {
+// Populate user role field with all user roles
+function acc_get_all_user_roles( $field ) {
     global $wp_roles;
     $roles = $wp_roles->roles;
     if($roles){        
@@ -52,8 +52,9 @@ function get_all_user_roles( $field ) {
     }
     return $field;
 }
-add_filter('acf/load_field/name=user_role', 'get_all_user_roles');
-function get_page_list( $field ) {
+add_filter('acf/load_field/name=user_role', 'acc_get_all_user_roles');
+// Populate page list field with all page slugs
+function acc_get_page_list( $field ) {
     $args = array(
         'post_status' => 'publish',
         'posts_per_page' => -1
@@ -68,18 +69,10 @@ function get_page_list( $field ) {
     }
     return $field;
 }
-add_filter('acf/load_field/name=redirect_slug', 'get_page_list');
-function get_string_between($string, $start, $end){
-    $string = ' ' . $string;
-    $ini = strpos($string, $start);
-    if ($ini == 0) return '';
-    $ini += strlen($start);
-    $len = strpos($string, $end, $ini) - $ini;
-    return substr($string, $ini, $len);
-}
-// REDIRECTION FILTER FOR PAGES IF THEY HAVE ROLE RESTRICTION VALUES
-add_filter('the_content', 'role_restriction_filter_content');
-function role_restriction_filter_content($content){
+add_filter('acf/load_field/name=redirect_slug', 'acc_get_page_list');
+// Redirection content filter 
+add_filter('the_content', 'acc_role_restriction_filter_content');
+function acc_role_restriction_filter_content($content){
     if (in_the_loop()){ //only affeect the body content
         $restrict_method = get_field( 'restriction_method', 'options');
         $show_error_message = get_field( 'show_error_message', 'options');
@@ -104,34 +97,36 @@ function role_restriction_filter_content($content){
                 }                   
             </style>';
         if($custom_css != ""){echo "<style>".$custom_css."</style>";}   
-        if (count($role_restrictions) >= 1){ // checks every post and page if it has restrictions
-            $matched_roles = array_intersect($role_restrictions, $user_roles);
-            if (count($matched_roles) == 0){
+        if (count($role_restrictions) >= 1){ // check if current page has restrictions set
+            $matched_roles = array_intersect($role_restrictions, $user_roles); //compare page restrictions with user role
+            if (count($matched_roles) == 0){ //if user role is not within allowed roles ($role_restrictions), execute restriction
                 if ($restrict_method == 'redirect'){
-                    wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path here
+                    wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path, add redirected variable to make error message appear on the page
                 }else if ($restrict_method == 'stay'){
                     if ($show_error_message){
                         $content = '<div class="access-error-message">'.$error_message.'</div>';
                         if ($additional_content != ""){
                             $content .= '<div class="additional-content">'.$additional_content.'</div>';
                         }
-                    
                     }else{
-                        
+                        $content = ''; //if no error message, just hide content
                     }
-        
                 }  
-            }else{
+            }else{ //if user role is in the allowed array
                 foreach($matched_roles as $role){
                     //per role validation here
                     // if ($role == "role1"){}
                     // else if ($role == "role2"){}
                     // else{}
+                    
+                    // Potential feature that could be added here: maybe have the option to let the user select custom redirects per 
+                    // user role. This option will be available per page.
                 }
             }
         }
+        //Executes if the page had just redirected by checking the redirect_slug and checking for the ?redirected=true variable
         if ($restrict_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
-            if ($show_error_message){
+            if ($show_error_message){  //show error message for a few seconds then animate to remove
                 $content = '<div class="access-error-message">'.$error_message.'</div>'.$content;
                 echo '<style>.access-error-message{margin-top: 100px;}</style>';
                 echo "<script type='text/javascript'>
@@ -155,7 +150,7 @@ function role_restriction_filter_content($content){
                         }
                     });
                     </script>";
-                }
+            }
         }
     }return $content;
 }
