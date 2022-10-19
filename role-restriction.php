@@ -40,6 +40,8 @@ function acc_import_acf_fields(){
         );
     }
     include 'import/role-restriction-custom-fields-import.php'; //import acf fieldgroups
+    //Idea for future versions, maybe a 3.0.0 update: ommit the need for acf, hard code all the custom fields so this can work 
+    //as as standalone plugin. Though this would be a major update since everything will be replaced aside from the content filter
 }
 // Populate user role field with all user roles
 function acc_get_all_user_roles( $field ) {
@@ -118,7 +120,7 @@ function acc_role_restriction_filter_content($content){
                     // if ($role == "role1"){}
                     // else if ($role == "role2"){}
                     // else{}
-                    
+
                     // Potential feature that could be added here: maybe have the option to let the user select custom redirects per 
                     // user role. This option will be available per page.
                 }
