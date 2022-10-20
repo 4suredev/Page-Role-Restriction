@@ -122,7 +122,7 @@ function acc_role_restriction_filter_content($content){
                     // else{}
 
                     // Potential feature that could be added here: maybe have the option to let the user select custom redirects per 
-                    // user role. This option will be available per page.
+                    // user role. This option will be available per page. You can work on this on a separate "development" branch
                 }
             }
         }
