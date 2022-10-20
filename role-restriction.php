@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.0
+ * Version: 2.0.2
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -48,14 +48,9 @@ add_action( 'load-post.php', 'acc_meta_init' );
 add_action( 'load-post-new.php', 'acc_meta_init' );
 add_action( 'load-page.php', 'acc_meta_init' );
 add_action( 'load-page-new.php', 'acc_meta_init' );
-add_action( 'admin_init', 'acc_default_options_init' );
 function acc_meta_init(){
     add_action( 'add_meta_boxes', 'acc_add_post_meta_boxes' );
     add_action( 'save_post', 'acc_save_post_meta', 10, 2 );
-}
-function acc_default_options_init(){
-    register_setting( 'acc-default-settings', 'restriction_method' );
-
 }
 /* Create one or more meta boxes to be displayed on the post editor screen. */
 function acc_add_post_meta_boxes() {
@@ -116,10 +111,14 @@ function acc_default_settings_menu() {
     $menu_slug = "acc-default-settings"; // used as "key" in menus
     $menu_pos = 20; // whatever position you want your menu to appear
 	$menu_icon = 'dashicons-admin-generic';
-    add_options_page( 'Access Manager Page', 'Access Manager Default Settings', 'manage_options', $menu_slug, 'acc_default_settings_options', $menu_icon, $menu_pos);
+    add_menu_page( 'Access Manager Page', 'Access Manager Default Settings', 'manage_options', $menu_slug, 'acc_default_settings_options', $menu_icon, $menu_pos);
+    add_action( 'admin_init', 'acc_default_options_init' );
+}
+function acc_default_options_init(){
+    register_setting( 'acc-default-settings', 'restriction_method' );
 }
 function acc_default_settings_options(){
-    if(get_current_screen()->base == 'settings_page_acc-default-settings'){ ?>
+    if(get_current_screen()->base == 'toplevel_page_acc-default-settings'){ ?>
     <h1>Access Manager Default Settings</h1>
     <form method="post" action="options.php"> 
         <?php settings_fields( 'acc-default-settings' ); ?>
@@ -130,8 +129,8 @@ function acc_default_settings_options(){
                     <label for="restriction_method">Restriction Method</label>
                     <!--  echo esc_attr( get_option('restriction_method') ); -->
                     <select id="restriction_method" name="restriction_method">
-                        <option value="redirect" >Redirect</option>
-                        <option value="stay">Stay on current page</option>
+                        <option value="redirect" <?php if(esc_attr( get_option('restriction_method') ) == 'redirect') echo 'selected'; ?>>Redirect</option>
+                        <option value="stay" <?php if(esc_attr( get_option('restriction_method') ) == 'stay') echo 'selected'; ?>>Stay on current page</option>
                     </select>
                 </p>
             </tr>
