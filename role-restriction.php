@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 2.0.2
+ * Version: 3.0.0
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -40,9 +40,109 @@ function acc_import_acf_fields(){
         );
     }
     include 'import/role-restriction-custom-fields-import.php'; //import acf fieldgroups
-    //Idea for future versions, maybe a 3.0.0 update: ommit the need for acf, hard code all the custom fields so this can work 
-    //as as standalone plugin. Though this would be a major update since everything will be replaced aside from the content filter
 }
+
+/* ================== EXPERIMENTAL ================== */
+/* Edit page/post hooks */
+add_action( 'load-post.php', 'acc_meta_init' );
+add_action( 'load-post-new.php', 'acc_meta_init' );
+add_action( 'load-page.php', 'acc_meta_init' );
+add_action( 'load-page-new.php', 'acc_meta_init' );
+add_action( 'admin_init', 'acc_default_options_init' );
+function acc_meta_init(){
+    add_action( 'add_meta_boxes', 'acc_add_post_meta_boxes' );
+    add_action( 'save_post', 'acc_save_post_meta', 10, 2 );
+}
+function acc_default_options_init(){
+    register_setting( 'acc-default-settings', 'restriction_method' );
+
+}
+/* Create one or more meta boxes to be displayed on the post editor screen. */
+function acc_add_post_meta_boxes() {
+    add_meta_box(
+        'acc-page-options',
+        esc_html__( 'Page Access', 'acc' ), 
+        'acc_page_options_meta_box',
+        NULL,     
+        'advanced', 
+        'default' 
+    );
+}
+/* Display the post meta box. */
+function acc_page_options_meta_box( $post ) { 
+   wp_nonce_field( basename( __FILE__ ), 'acc_page_options_nonce' );
+   $postmeta = maybe_unserialize( get_post_meta( $post->ID, 'acc_page_options', true ) );
+   ?>   <p><b>Users that can access this page</b></p>
+        <p style="font-size: 0.8em; color: ccc;">leave blank to allow all</p>
+        <ul class="user-roles-list">
+            <?php
+                global $wp_roles;
+                $roles = $wp_roles->roles;
+                if($roles){        
+                    foreach( $roles as $key=>$role ) {   
+                        if ( is_array( $postmeta ) && in_array( $key, $postmeta ) ) { $checked = 'checked="checked"'; } 
+                        else { $checked = null; }   
+                        ?><li>
+                            <label for="<?php echo $key; ?>"><input type="checkbox" name="allowedroles[]" id="<?php echo $key; ?>" value="<?php echo $key; ?>" <?php echo $checked; ?>/> <?php echo $role['name']; ?></label>
+                        </li><?php
+                    }
+                }
+            ?>
+        </ul>
+    <?php 
+}
+function acc_save_post_meta( $post_id, $post ) {
+    /* Verify the nonce before proceeding. */
+    if ( !isset( $_POST['acc_page_options_nonce'] ) || !wp_verify_nonce( $_POST['acc_page_options_nonce'], basename( __FILE__ ) ) ){
+        return $post_id;
+    }
+    $post_type = get_post_type_object( $post->post_type );
+     /* Verify user capabilities. */
+    if ( !current_user_can( $post_type->cap->edit_post, $post_id ) ){
+        return $post_id;
+    }
+    $new_meta_value = $_POST['allowedroles'];
+    $meta_key = 'acc_page_options';
+    if ( !empty($_POST['allowedroles']) ){
+        update_post_meta( $post_id, $meta_key, $new_meta_value );
+    }else{
+        delete_post_meta( $post_id, $meta_key );
+    }
+  
+}
+add_action('admin_menu', 'acc_default_settings_menu');
+function acc_default_settings_menu() {
+    global $submenu;
+    $menu_slug = "acc-default-settings"; // used as "key" in menus
+    $menu_pos = 20; // whatever position you want your menu to appear
+	$menu_icon = 'dashicons-admin-generic';
+    add_options_page( 'Access Manager Page', 'Access Manager Default Settings', 'manage_options', $menu_slug, 'acc_default_settings_options', $menu_icon, $menu_pos);
+}
+function acc_default_settings_options(){
+    if(get_current_screen()->base == 'settings_page_acc-default-settings'){ ?>
+    <h1>Access Manager Default Settings</h1>
+    <form method="post" action="options.php"> 
+        <?php settings_fields( 'acc-default-settings' ); ?>
+        <?php do_settings_sections( 'acc-default-settings' ); ?>
+        <table class="form-table">
+            <tr>
+                <p>
+                    <label for="restriction_method">Restriction Method</label>
+                    <!--  echo esc_attr( get_option('restriction_method') ); -->
+                    <select id="restriction_method" name="restriction_method">
+                        <option value="redirect" >Redirect</option>
+                        <option value="stay">Stay on current page</option>
+                    </select>
+                </p>
+            </tr>
+        </table>
+        <?php submit_button(); ?>
+    </form>
+    <?php
+    }
+} 
+/* ================== EXPERIMENTAL ================== */
+
 // Populate user role field with all user roles
 function acc_get_all_user_roles( $field ) {
     global $wp_roles;
@@ -76,6 +176,7 @@ add_filter('acf/load_field/name=redirect_slug', 'acc_get_page_list');
 add_filter('the_content', 'acc_role_restriction_filter_content');
 function acc_role_restriction_filter_content($content){
     if (in_the_loop()){ //only affeect the body content
+        $post_id = get_the_id();
         $restrict_method = get_field( 'restriction_method', 'options');
         $show_error_message = get_field( 'show_error_message', 'options');
         $error_message_background_color = get_field( 'error_message_background_color', 'options');
@@ -84,6 +185,7 @@ function acc_role_restriction_filter_content($content){
         $redirect_slug = get_field( 'redirect_slug', 'options' );
         $additional_content = get_field( 'additional_content', 'options' , false);
         $role_restrictions = (array) get_field('user_role');
+        $role_restrictions_meta = get_post_meta( $post_id, 'acc_page_options', true ); //experimental
         $user = wp_get_current_user();
         $user_roles = (array) $user->roles;
         $custom_css = get_field('custom_css', 'options');
