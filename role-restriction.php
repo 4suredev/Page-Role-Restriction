@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 2.0.2
+ * Version: 3.0.0
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -19,30 +19,38 @@ if( ! class_exists( 'Page_role_restriction_updater' ) ){
 	include_once( plugin_dir_path( __FILE__ ) . 'updater.php' );
 }
 // Handle plugin activation
-register_activation_hook( __FILE__, function() {
-    if ( ! is_plugin_active( 'advanced-custom-fields-pro/acf.php' ) and current_user_can( 'activate_plugins' ) ) {
-        // Stop activation redirect and show error
-        wp_die('Sorry, but this plugin requires ACF pro to be installed and active. <br><a href="' . admin_url( 'plugins.php' ) . '">&laquo; Return to Plugins</a>');
-    }
-});
-add_action('acf/init', 'acc_import_acf_fields');
-function acc_import_acf_fields(){
-    if ( function_exists( 'acf_add_options_page' ) ) {
-        acf_add_options_page(
-            array(
-                'page_title' => 'Access Manager Page',
-                'menu_title' => 'Access Manager',
-                'menu_slug'  => 'access-manager',
-                'redirect'   => false,
-                'capability' => 'administrator',
-                'position'   => 20
-            )
-        );
-    }
-    include 'import/role-restriction-custom-fields-import.php'; //import acf fieldgroups
-}
+// register_activation_hook( __FILE__, function() {
+//     if ( ! is_plugin_active( 'advanced-custom-fields-pro/acf.php' ) and current_user_can( 'activate_plugins' ) ) {
+//         // Stop activation redirect and show error
+//         wp_die('Sorry, but this plugin requires ACF pro to be installed and active. <br><a href="' . admin_url( 'plugins.php' ) . '">&laquo; Return to Plugins</a>');
+//     }
+// });
+// add_action('acf/init', 'acc_import_acf_fields');
+// function acc_import_acf_fields(){
+//     if ( function_exists( 'acf_add_options_page' ) ) {
+//         acf_add_options_page(
+//             array(
+//                 'page_title' => 'Access Manager Page',
+//                 'menu_title' => 'Access Manager',
+//                 'menu_slug'  => 'access-manager',
+//                 'redirect'   => false,
+//                 'capability' => 'administrator',
+//                 'position'   => 20
+//             )
+//         );
+//     }
+//     include 'import/role-restriction-custom-fields-import.php'; //import acf fieldgroups
+// }
 
 /* ================== EXPERIMENTAL ================== */
+add_action( 'admin_enqueue_scripts', 'acc_admin_enqueue_scripts');
+function acc_admin_enqueue_scripts($hook) {
+    wp_enqueue_media();
+    wp_enqueue_style( 'wp-color-picker');
+    wp_enqueue_script( 'wp-color-picker');
+    wp_enqueue_script('acc-custom-scripts', ACC_PLUGIN_PATH.'js/admin-scripts.js', array('jquery'));
+    wp_enqueue_style('acc-custom-styles', ACC_PLUGIN_PATH.'css/admin-styles.css');
+}
 /* Edit page/post hooks */
 add_action( 'load-post.php', 'acc_meta_init' );
 add_action( 'load-post-new.php', 'acc_meta_init' );
@@ -116,6 +124,13 @@ function acc_default_settings_menu() {
 }
 function acc_default_options_init(){
     register_setting( 'acc-default-settings', 'restriction_method' );
+    register_setting( 'acc-default-settings', 'redirect_slug' );
+    register_setting( 'acc-default-settings', 'show_error_message' );
+    register_setting( 'acc-default-settings', 'error_message_background_color' );
+    register_setting( 'acc-default-settings', 'error_message_text_color' );
+    register_setting( 'acc-default-settings', 'pagepost_access_denied' );
+    register_setting( 'acc-default-settings', 'additional_content' );
+    register_setting( 'acc-default-settings', 'custom_css' );
 }
 function acc_default_settings_options(){
     if(get_current_screen()->base == 'toplevel_page_acc-default-settings'){ ?>
@@ -123,16 +138,66 @@ function acc_default_settings_options(){
     <form method="post" action="options.php"> 
         <?php settings_fields( 'acc-default-settings' ); ?>
         <?php do_settings_sections( 'acc-default-settings' ); ?>
+        <?php 
+            $restriction_method = get_option('restriction_method');
+            $show_error_message = get_option('show_error_message');
+            $redirect_slug = get_option('redirect_slug');
+            $error_message_background_color = get_option('error_message_background_color');
+            $error_message_text_color = get_option('error_message_text_color');
+            $pagepost_access_denied = get_option('pagepost_access_denied');
+            $additional_content = get_option('additional_content');
+            $custom_css = get_option('custom_css');
+        ?>
         <table class="form-table">
+            <tr><th colspan=3>Access Manager</th></tr>
             <tr>
-                <p>
+                <td>
                     <label for="restriction_method">Restriction Method</label>
-                    <!--  echo esc_attr( get_option('restriction_method') ); -->
-                    <select id="restriction_method" name="restriction_method">
-                        <option value="redirect" <?php if(esc_attr( get_option('restriction_method') ) == 'redirect') echo 'selected'; ?>>Redirect</option>
-                        <option value="stay" <?php if(esc_attr( get_option('restriction_method') ) == 'stay') echo 'selected'; ?>>Stay on current page</option>
+                    <select id="restriction_method" name="restriction_method" conditional-formatting="true" data-condition="restriction_method" class="field">
+                        <option value="redirect" <?php if($restriction_method == 'redirect') echo 'selected'; ?>>Redirect</option>
+                        <option value="stay" <?php if($restriction_method == 'stay') echo 'selected'; ?>>Stay on current page</option>
                     </select>
-                </p>
+                </td>
+                <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect') echo 'true'; else echo 'false'; ?>">
+                    <label for="redirect_slug">Redirect Slug</label>
+                    <select id="redirect_slug" name="redirect_slug">
+                        <?php echo acc_get_page_list(); ?>
+                    </select>
+                    <p style="font-size: 0.8em; color: ccc;">Select the page redirect destination.</p>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
+                </td>
+                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                    <label for="error_message_background_color">Error message background color</label>
+                    <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
+                </td>
+                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                    <label for="error_message_text_color">Error message background color</label>
+                    <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
+                </td>
+            </tr>
+            <tr>
+                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?> colspan=3>
+                    <label for="pagepost_access_denied">Error message</label>
+                    <textarea name="pagepost_access_denied" id="pagepost_access_denied"><?php echo $pagepost_access_denied; ?></textarea>
+                </td>
+            </tr>
+            <tr>
+                <td colspan=3>
+                    <label for="additional_content">Additional content below error message</label>
+                    <?php 
+                    wp_editor( $additional_content, 'additional_content', array() );
+                     ?>
+                </td>
+            </tr>
+            <tr>
+                <td colspan=3>
+                    <label for="custom_css">Custom CSS</label>
+                    <textarea name="custom_css" id="custom_css"><?php echo $custom_css; ?></textarea>
+                </td>
             </tr>
         </table>
         <?php submit_button(); ?>
@@ -143,51 +208,61 @@ function acc_default_settings_options(){
 /* ================== EXPERIMENTAL ================== */
 
 // Populate user role field with all user roles
-function acc_get_all_user_roles( $field ) {
-    global $wp_roles;
-    $roles = $wp_roles->roles;
-    if($roles){        
-        foreach( $roles as $key=>$role ) {      
-            $field['choices'][$key] = $role['name'];
-        }
-    }
-    return $field;
-}
-add_filter('acf/load_field/name=user_role', 'acc_get_all_user_roles');
+// function acc_get_all_user_roles( $field ) {
+//     global $wp_roles;
+//     $roles = $wp_roles->roles;
+//     if($roles){        
+//         foreach( $roles as $key=>$role ) {      
+//             $field['choices'][$key] = $role['name'];
+//         }
+//     }
+//     return $field;
+// }
+// add_filter('acf/load_field/name=user_role', 'acc_get_all_user_roles');
 // Populate page list field with all page slugs
-function acc_get_page_list( $field ) {
+function acc_get_page_list() {
     $args = array(
         'post_status' => 'publish',
         'posts_per_page' => -1
     );
     $pages = get_pages($args);
+    $field_options = '';
+    if(get_option('restriction_method') == 'redirect')
+        $selected_val = get_option('redirect_slug');
+    
     if($pages){        
         foreach( $pages as $key=>$page ) {      
             $title = $page->post_title;
             $slug = $page->post_name;
-            $field['choices'][$slug] = $title;
+            if($selected_val == $slug){
+                $selected = 'selected';
+            }else{
+                $selected = '';
+            }
+            $field_options .= '<option value="'.$slug.'" '.$selected.'>'.$title.'</option>';
         }
     }
-    return $field;
+    return $field_options;
 }
-add_filter('acf/load_field/name=redirect_slug', 'acc_get_page_list');
+// add_filter('acf/load_field/name=redirect_slug', 'acc_get_page_list');
 // Redirection content filter 
 add_filter('the_content', 'acc_role_restriction_filter_content');
 function acc_role_restriction_filter_content($content){
     if (in_the_loop()){ //only affeect the body content
         $post_id = get_the_id();
-        $restrict_method = get_field( 'restriction_method', 'options');
-        $show_error_message = get_field( 'show_error_message', 'options');
-        $error_message_background_color = get_field( 'error_message_background_color', 'options');
-        $error_message_text_color = get_field( 'error_message_text_color', 'options');
-        $error_message = get_field( 'pagepost_access_denied', 'options' );
-        $redirect_slug = get_field( 'redirect_slug', 'options' );
-        $additional_content = get_field( 'additional_content', 'options' , false);
-        $role_restrictions = (array) get_field('user_role');
-        $role_restrictions_meta = get_post_meta( $post_id, 'acc_page_options', true ); //experimental
+
+        $restriction_method = get_option('restriction_method');
+        $show_error_message = get_option('show_error_message');
+        $redirect_slug = get_option('redirect_slug');
+        $error_message_background_color = get_option('error_message_background_color');
+        $error_message_text_color = get_option('error_message_text_color');
+        $error_message = get_option('pagepost_access_denied');
+        $additional_content = get_option('additional_content');
+        $custom_css = get_option('custom_css');
+
+        $role_restrictions = (array) get_post_meta( $post_id, 'acc_page_options', true ); 
         $user = wp_get_current_user();
         $user_roles = (array) $user->roles;
-        $custom_css = get_field('custom_css', 'options');
         if($additional_content != ''){$margin = '100px';}
         else{$margin = '0';}
         echo  '<style>
@@ -202,10 +277,13 @@ function acc_role_restriction_filter_content($content){
         if($custom_css != ""){echo "<style>".$custom_css."</style>";}   
         if (count($role_restrictions) >= 1){ // check if current page has restrictions set
             $matched_roles = array_intersect($role_restrictions, $user_roles); //compare page restrictions with user role
+            var_dump($matched_roles);
             if (count($matched_roles) == 0){ //if user role is not within allowed roles ($role_restrictions), execute restriction
-                if ($restrict_method == 'redirect'){
-                    wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path, add redirected variable to make error message appear on the page
-                }else if ($restrict_method == 'stay'){
+                if ($restriction_method == 'redirect'){
+                    if($redirect_slug == 'home') {$redirect_slug = '';}
+                    // var_dump(home_url().'/'.$redirect_slug.'?redirected=true');
+                    // wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path, add redirected variable to make error message appear on the page
+                }else if ($restriction_method == 'stay'){
                     if ($show_error_message){
                         $content = '<div class="access-error-message">'.$error_message.'</div>';
                         if ($additional_content != ""){
@@ -228,7 +306,7 @@ function acc_role_restriction_filter_content($content){
             }
         }
         //Executes if the page had just redirected by checking the redirect_slug and checking for the ?redirected=true variable
-        if ($restrict_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
+        if ($restriction_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
             if ($show_error_message){  //show error message for a few seconds then animate to remove
                 $content = '<div class="access-error-message">'.$error_message.'</div>'.$content;
                 echo '<style>.access-error-message{margin-top: 100px;}</style>';
