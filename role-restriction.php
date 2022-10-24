@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.0
+ * Version: 2.0.2
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -277,12 +277,12 @@ function acc_role_restriction_filter_content($content){
         if($custom_css != ""){echo "<style>".$custom_css."</style>";}   
         if (count($role_restrictions) >= 1){ // check if current page has restrictions set
             $matched_roles = array_intersect($role_restrictions, $user_roles); //compare page restrictions with user role
-            var_dump($matched_roles);
             if (count($matched_roles) == 0){ //if user role is not within allowed roles ($role_restrictions), execute restriction
                 if ($restriction_method == 'redirect'){
-                    if($redirect_slug == 'home') {$redirect_slug = '';}
-                    // var_dump(home_url().'/'.$redirect_slug.'?redirected=true');
-                    // wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path, add redirected variable to make error message appear on the page
+                    if (!is_page($redirect_slug)){
+                        if($redirect_slug == 'home') {$redirect_slug = '';}
+                        wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path, add redirected variable to make error message appear on the page
+                    }
                 }else if ($restriction_method == 'stay'){
                     if ($show_error_message){
                         $content = '<div class="access-error-message">'.$error_message.'</div>';
