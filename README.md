@@ -17,6 +17,3 @@ Additional Features:
 <li>Ability to add custom css</li>
 </ul>
 
-
-Prerequisites:
-ACF pro must be installed and activated for this plugin to work.
