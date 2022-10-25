@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 2.0.2
+ * Version: 3.0.1
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -18,31 +18,6 @@ $updater->initialize();
 if( ! class_exists( 'Page_role_restriction_updater' ) ){
 	include_once( plugin_dir_path( __FILE__ ) . 'updater.php' );
 }
-// Handle plugin activation
-// register_activation_hook( __FILE__, function() {
-//     if ( ! is_plugin_active( 'advanced-custom-fields-pro/acf.php' ) and current_user_can( 'activate_plugins' ) ) {
-//         // Stop activation redirect and show error
-//         wp_die('Sorry, but this plugin requires ACF pro to be installed and active. <br><a href="' . admin_url( 'plugins.php' ) . '">&laquo; Return to Plugins</a>');
-//     }
-// });
-// add_action('acf/init', 'acc_import_acf_fields');
-// function acc_import_acf_fields(){
-//     if ( function_exists( 'acf_add_options_page' ) ) {
-//         acf_add_options_page(
-//             array(
-//                 'page_title' => 'Access Manager Page',
-//                 'menu_title' => 'Access Manager',
-//                 'menu_slug'  => 'access-manager',
-//                 'redirect'   => false,
-//                 'capability' => 'administrator',
-//                 'position'   => 20
-//             )
-//         );
-//     }
-//     include 'import/role-restriction-custom-fields-import.php'; //import acf fieldgroups
-// }
-
-/* ================== EXPERIMENTAL ================== */
 add_action( 'admin_enqueue_scripts', 'acc_admin_enqueue_scripts');
 function acc_admin_enqueue_scripts($hook) {
     wp_enqueue_media();
@@ -205,20 +180,6 @@ function acc_default_settings_options(){
     <?php
     }
 } 
-/* ================== EXPERIMENTAL ================== */
-
-// Populate user role field with all user roles
-// function acc_get_all_user_roles( $field ) {
-//     global $wp_roles;
-//     $roles = $wp_roles->roles;
-//     if($roles){        
-//         foreach( $roles as $key=>$role ) {      
-//             $field['choices'][$key] = $role['name'];
-//         }
-//     }
-//     return $field;
-// }
-// add_filter('acf/load_field/name=user_role', 'acc_get_all_user_roles');
 // Populate page list field with all page slugs
 function acc_get_page_list() {
     $args = array(
@@ -244,7 +205,6 @@ function acc_get_page_list() {
     }
     return $field_options;
 }
-// add_filter('acf/load_field/name=redirect_slug', 'acc_get_page_list');
 // Redirection content filter 
 add_filter('the_content', 'acc_role_restriction_filter_content');
 function acc_role_restriction_filter_content($content){
