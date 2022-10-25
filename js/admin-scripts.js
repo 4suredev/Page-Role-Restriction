@@ -16,4 +16,15 @@ jQuery(document).ready(function($){
             $('td[condition="'+condition+'"][condition-value!="'+val+'"]').attr('show', 'false'); 
         }
     })
+    $('.field#show_override').change(function(){
+        var el = $(this).prop('nodeName');   
+        if(el == 'INPUT' && $(this).attr('type') == 'checkbox'){
+            var val = $(this).is(':checked');
+            if(val) {
+                $('#page-overrides').show();
+            }else{
+                $('#page-overrides').hide();
+            }
+        }
+    })
 })

@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 2.0.2
+ * Version: 3.0.2
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -18,31 +18,6 @@ $updater->initialize();
 if( ! class_exists( 'Page_role_restriction_updater' ) ){
 	include_once( plugin_dir_path( __FILE__ ) . 'updater.php' );
 }
-// Handle plugin activation
-// register_activation_hook( __FILE__, function() {
-//     if ( ! is_plugin_active( 'advanced-custom-fields-pro/acf.php' ) and current_user_can( 'activate_plugins' ) ) {
-//         // Stop activation redirect and show error
-//         wp_die('Sorry, but this plugin requires ACF pro to be installed and active. <br><a href="' . admin_url( 'plugins.php' ) . '">&laquo; Return to Plugins</a>');
-//     }
-// });
-// add_action('acf/init', 'acc_import_acf_fields');
-// function acc_import_acf_fields(){
-//     if ( function_exists( 'acf_add_options_page' ) ) {
-//         acf_add_options_page(
-//             array(
-//                 'page_title' => 'Access Manager Page',
-//                 'menu_title' => 'Access Manager',
-//                 'menu_slug'  => 'access-manager',
-//                 'redirect'   => false,
-//                 'capability' => 'administrator',
-//                 'position'   => 20
-//             )
-//         );
-//     }
-//     include 'import/role-restriction-custom-fields-import.php'; //import acf fieldgroups
-// }
-
-/* ================== EXPERIMENTAL ================== */
 add_action( 'admin_enqueue_scripts', 'acc_admin_enqueue_scripts');
 function acc_admin_enqueue_scripts($hook) {
     wp_enqueue_media();
@@ -73,11 +48,22 @@ function acc_add_post_meta_boxes() {
 }
 /* Display the post meta box. */
 function acc_page_options_meta_box( $post ) { 
-   wp_nonce_field( basename( __FILE__ ), 'acc_page_options_nonce' );
-   $postmeta = maybe_unserialize( get_post_meta( $post->ID, 'acc_page_options', true ) );
+    wp_nonce_field( basename( __FILE__ ), 'acc_page_options_nonce' );
+    $post_id = $post->ID;
+    $default_restriction_method = get_option('restriction_method');
+    $postmeta = maybe_unserialize( get_post_meta( $post_id, 'acc_page_options', true ) );
+    $show_override = maybe_unserialize( get_post_meta($post_id,'show_override', false) )[0]; 
+    $restriction_method = maybe_unserialize( get_post_meta($post_id,'restriction_method', false) )[0]; 
+    $show_error_message = maybe_unserialize( get_post_meta($post_id,'show_error_message', false) )[0]; 
+    $redirect_slug = maybe_unserialize( get_post_meta($post_id,'redirect_slug', false) )[0]; 
+    $error_message_background_color = maybe_unserialize( get_post_meta($post_id,'error_message_background_color', false) )[0]; 
+    $error_message_text_color = maybe_unserialize( get_post_meta($post_id,'error_message_text_color', false) )[0]; 
+    $pagepost_access_denied = maybe_unserialize( get_post_meta($post_id,'pagepost_access_denied', false) )[0]; 
+    $additional_content = (string) maybe_unserialize( get_post_meta($post_id,'additional_content', false) )[0]; 
+    $custom_css = maybe_unserialize( get_post_meta($post_id,'custom_css', false) )[0]; 
    ?>   <p><b>Users that can access this page</b></p>
         <p style="font-size: 0.8em; color: ccc;">leave blank to allow all</p>
-        <ul class="user-roles-list">
+        <ul class="user-roles-list" style="margin-bottom: 20px;">
             <?php
                 global $wp_roles;
                 $roles = $wp_roles->roles;
@@ -92,6 +78,64 @@ function acc_page_options_meta_box( $post ) {
                 }
             ?>
         </ul>
+        <p><b>Restriction Settings</b></p>
+        <label for="show_override" class="inline-check"><input type="checkbox" name="show_override[]" id="show_override"<?php if($show_override) echo 'checked'; ?>  class="field"/> Override Default Settings</label>
+        <table id="page-overrides" class="form-table" style="max-width: unset; <?php if(!$show_override) echo 'display: none;'; ?>">
+            <tr>
+                <th colspan=3>
+                    <p style="font-size: 20px; margin: 0;"><b>Page Overrides</b></p>
+                </th>
+            </tr>
+            <tr>
+                <td>
+                    <label for="restriction_method">Restriction Method</label>
+                    <select id="restriction_method" name="restriction_method" conditional-formatting="true" data-condition="restriction_method" class="field">
+                        <option value="redirect" <?php if($restriction_method == 'redirect') echo 'selected'; ?>>Redirect</option>
+                        <option value="stay" <?php if($restriction_method == 'stay') echo 'selected'; ?>>Stay on current page</option>
+                    </select>
+                </td>
+                <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect') echo 'true'; else echo 'false'; ?>">
+                    <label for="redirect_slug">Redirect Slug</label>
+                    <select id="redirect_slug" name="redirect_slug">
+                        <?php echo acc_get_page_list(true, $post_id); ?>
+                    </select>
+                    <p style="font-size: 0.8em;">Select the page redirect destination.</p>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
+                </td>
+                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                    <label for="error_message_background_color">Error message background color</label>
+                    <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
+                </td>
+                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                    <label for="error_message_text_color">Error message text color</label>
+                    <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
+                </td>
+            </tr>
+            <tr>
+                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?> colspan=3>
+                    <label for="pagepost_access_denied">Error message</label>
+                    <textarea name="pagepost_access_denied" id="pagepost_access_denied"><?php echo $pagepost_access_denied; ?></textarea>
+                </td>
+            </tr>
+            <tr>
+                <td colspan=3>
+                    <label for="additional_content">Content below</label>
+                    <?php 
+                    wp_editor( $additional_content, 'additional_content', array() );
+                     ?>
+                </td>
+            </tr>
+            <tr>
+                <td colspan=3>
+                    <label for="custom_css">Custom CSS</label>
+                    <textarea name="custom_css" id="custom_css"><?php echo $custom_css; ?></textarea>
+                </td>
+            </tr>
+        </table>
     <?php 
 }
 function acc_save_post_meta( $post_id, $post ) {
@@ -104,12 +148,32 @@ function acc_save_post_meta( $post_id, $post ) {
     if ( !current_user_can( $post_type->cap->edit_post, $post_id ) ){
         return $post_id;
     }
-    $new_meta_value = $_POST['allowedroles'];
-    $meta_key = 'acc_page_options';
     if ( !empty($_POST['allowedroles']) ){
-        update_post_meta( $post_id, $meta_key, $new_meta_value );
+        update_post_meta( $post_id, 'acc_page_options', $_POST['allowedroles'] );
     }else{
-        delete_post_meta( $post_id, $meta_key );
+        delete_post_meta( $post_id, 'acc_page_options' );
+    }
+
+    if(!empty($_POST['show_override'])){
+        update_post_meta( $post_id, 'show_override', $_POST['show_override'] );
+        update_post_meta( $post_id, 'restriction_method', $_POST['restriction_method'] );
+        update_post_meta( $post_id, 'redirect_slug', $_POST['redirect_slug'] );
+        update_post_meta( $post_id, 'show_error_message', $_POST['show_error_message'] );
+        update_post_meta( $post_id, 'error_message_background_color', $_POST['error_message_background_color'] );
+        update_post_meta( $post_id, 'error_message_text_color', $_POST['error_message_text_color'] );
+        update_post_meta( $post_id, 'pagepost_access_denied', $_POST['pagepost_access_denied'] );
+        update_post_meta( $post_id, 'additional_content', $_POST['additional_content'] );
+        update_post_meta( $post_id, 'custom_css', $_POST['custom_css'] );
+    }else{
+        delete_post_meta( $post_id, 'show_override' );
+        delete_post_meta( $post_id, 'restriction_method' );
+        delete_post_meta( $post_id, 'redirect_slug' );
+        delete_post_meta( $post_id, 'show_error_message' );
+        delete_post_meta( $post_id, 'error_message_background_color' );
+        delete_post_meta( $post_id, 'error_message_text_color' );
+        delete_post_meta( $post_id, 'pagepost_access_denied' );
+        delete_post_meta( $post_id, 'additional_content' );
+        delete_post_meta( $post_id, 'custom_css' );
     }
   
 }
@@ -161,9 +225,9 @@ function acc_default_settings_options(){
                 <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect') echo 'true'; else echo 'false'; ?>">
                     <label for="redirect_slug">Redirect Slug</label>
                     <select id="redirect_slug" name="redirect_slug">
-                        <?php echo acc_get_page_list(); ?>
+                        <?php echo acc_get_page_list(false, ''); ?>
                     </select>
-                    <p style="font-size: 0.8em; color: ccc;">Select the page redirect destination.</p>
+                    <p style="font-size: 0.8em;">Select the page redirect destination.</p>
                 </td>
             </tr>
             <tr>
@@ -175,7 +239,7 @@ function acc_default_settings_options(){
                     <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
                 </td>
                 <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
-                    <label for="error_message_text_color">Error message background color</label>
+                    <label for="error_message_text_color">Error message text color</label>
                     <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
                 </td>
             </tr>
@@ -187,7 +251,7 @@ function acc_default_settings_options(){
             </tr>
             <tr>
                 <td colspan=3>
-                    <label for="additional_content">Additional content below error message</label>
+                    <label for="additional_content">Content below</label>
                     <?php 
                     wp_editor( $additional_content, 'additional_content', array() );
                      ?>
@@ -205,31 +269,20 @@ function acc_default_settings_options(){
     <?php
     }
 } 
-/* ================== EXPERIMENTAL ================== */
-
-// Populate user role field with all user roles
-// function acc_get_all_user_roles( $field ) {
-//     global $wp_roles;
-//     $roles = $wp_roles->roles;
-//     if($roles){        
-//         foreach( $roles as $key=>$role ) {      
-//             $field['choices'][$key] = $role['name'];
-//         }
-//     }
-//     return $field;
-// }
-// add_filter('acf/load_field/name=user_role', 'acc_get_all_user_roles');
 // Populate page list field with all page slugs
-function acc_get_page_list() {
+function acc_get_page_list($is_page, $post_id) {
     $args = array(
         'post_status' => 'publish',
         'posts_per_page' => -1
     );
     $pages = get_pages($args);
     $field_options = '';
-    if(get_option('restriction_method') == 'redirect')
+    if(!$is_page && get_option('restriction_method') == 'redirect'){
         $selected_val = get_option('redirect_slug');
-    
+    }
+    if($is_page){
+        $selected_val = get_post_meta($post_id, 'redirect_slug', false)[0];
+    }
     if($pages){        
         foreach( $pages as $key=>$page ) {      
             $title = $page->post_title;
@@ -244,22 +297,31 @@ function acc_get_page_list() {
     }
     return $field_options;
 }
-// add_filter('acf/load_field/name=redirect_slug', 'acc_get_page_list');
 // Redirection content filter 
 add_filter('the_content', 'acc_role_restriction_filter_content');
 function acc_role_restriction_filter_content($content){
     if (in_the_loop()){ //only affeect the body content
         $post_id = get_the_id();
-
-        $restriction_method = get_option('restriction_method');
-        $show_error_message = get_option('show_error_message');
-        $redirect_slug = get_option('redirect_slug');
-        $error_message_background_color = get_option('error_message_background_color');
-        $error_message_text_color = get_option('error_message_text_color');
-        $error_message = get_option('pagepost_access_denied');
-        $additional_content = get_option('additional_content');
-        $custom_css = get_option('custom_css');
-
+        $show_override = get_post_meta($post_id, 'show_override', false)[0][0];
+        if($show_override == 'on'){
+            $restriction_method = get_post_meta($post_id, 'restriction_method', false)[0];
+            $show_error_message = get_post_meta($post_id, 'show_error_message', false)[0];
+            $redirect_slug = get_post_meta($post_id, 'redirect_slug', false)[0];
+            $error_message_background_color = get_post_meta($post_id, 'error_message_background_color', false)[0];
+            $error_message_text_color = get_post_meta($post_id, 'error_message_text_color', false)[0];
+            $error_message = get_post_meta($post_id, 'pagepost_access_denied', false)[0];
+            $additional_content = get_post_meta($post_id, 'additional_content', false)[0];
+            $custom_css = get_post_meta($post_id, 'custom_css', false)[0];
+        }else{
+            $restriction_method = get_option('restriction_method');
+            $show_error_message = get_option('show_error_message');
+            $redirect_slug = get_option('redirect_slug');
+            $error_message_background_color = get_option('error_message_background_color');
+            $error_message_text_color = get_option('error_message_text_color');
+            $error_message = get_option('pagepost_access_denied');
+            $additional_content = get_option('additional_content');
+            $custom_css = get_option('custom_css');
+        }
         $role_restrictions = (array) get_post_meta( $post_id, 'acc_page_options', true ); 
         $user = wp_get_current_user();
         $user_roles = (array) $user->roles;
@@ -290,7 +352,11 @@ function acc_role_restriction_filter_content($content){
                             $content .= '<div class="additional-content">'.$additional_content.'</div>';
                         }
                     }else{
-                        $content = ''; //if no error message, just hide content
+                        if ($additional_content != ""){
+                            $content = '<div class="additional-content">'.$additional_content.'</div>';
+                        }else{
+                            $content = '';
+                        }
                     }
                 }  
             }else{ //if user role is in the allowed array
