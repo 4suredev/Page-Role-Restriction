@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.1
+ * Version: 3.0.2
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -150,7 +150,7 @@ function acc_default_settings_options(){
                     <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
                 </td>
                 <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
-                    <label for="error_message_text_color">Error message background color</label>
+                    <label for="error_message_text_color">Error message text color</label>
                     <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
                 </td>
             </tr>
