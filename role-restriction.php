@@ -302,6 +302,9 @@ add_filter('the_content', 'acc_role_restriction_filter_content');
 function acc_role_restriction_filter_content($content){
     if (in_the_loop()){ //only affeect the body content
         $post_id = get_the_id();
+        $role_restrictions = (array) get_post_meta( $post_id, 'acc_page_options', true ); 
+        $user = wp_get_current_user();
+        $user_roles = (array) $user->roles;
         $show_override = get_post_meta($post_id, 'show_override', false)[0][0];
         if($show_override == 'on'){
             $restriction_method = get_post_meta($post_id, 'restriction_method', false)[0];
@@ -312,7 +315,7 @@ function acc_role_restriction_filter_content($content){
             $error_message = get_post_meta($post_id, 'pagepost_access_denied', false)[0];
             $additional_content = get_post_meta($post_id, 'additional_content', false)[0];
             $custom_css = get_post_meta($post_id, 'custom_css', false)[0];
-        }else{
+        }else if($show_override == NULL){
             $restriction_method = get_option('restriction_method');
             $show_error_message = get_option('show_error_message');
             $redirect_slug = get_option('redirect_slug');
@@ -322,9 +325,6 @@ function acc_role_restriction_filter_content($content){
             $additional_content = get_option('additional_content');
             $custom_css = get_option('custom_css');
         }
-        $role_restrictions = (array) get_post_meta( $post_id, 'acc_page_options', true ); 
-        $user = wp_get_current_user();
-        $user_roles = (array) $user->roles;
         if($additional_content != ''){$margin = '100px';}
         else{$margin = '0';}
         echo  '<style>
@@ -337,13 +337,13 @@ function acc_role_restriction_filter_content($content){
                 }                   
             </style>';
         if($custom_css != ""){echo "<style>".$custom_css."</style>";}   
-        if (count($role_restrictions) >= 1){ // check if current page has restrictions set
+        if (count($role_restrictions) >= 1 && $role_restrictions[0] != ""){ // check if current page has restrictions set
             $matched_roles = array_intersect($role_restrictions, $user_roles); //compare page restrictions with user role
             if (count($matched_roles) == 0){ //if user role is not within allowed roles ($role_restrictions), execute restriction
                 if ($restriction_method == 'redirect'){
                     if (!is_page($redirect_slug)){
                         if($redirect_slug == 'home') {$redirect_slug = '';}
-                        wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true'); //set the redirect path, add redirected variable to make error message appear on the page
+                        wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true&rdid='.$post_id); //set the redirect path, add redirected variable to make error message appear on the page
                     }
                 }else if ($restriction_method == 'stay'){
                     if ($show_error_message){
@@ -372,31 +372,69 @@ function acc_role_restriction_filter_content($content){
             }
         }
         //Executes if the page had just redirected by checking the redirect_slug and checking for the ?redirected=true variable
-        if ($restriction_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
-            if ($show_error_message){  //show error message for a few seconds then animate to remove
-                $content = '<div class="access-error-message">'.$error_message.'</div>'.$content;
-                echo '<style>.access-error-message{margin-top: 100px;}</style>';
-                echo "<script type='text/javascript'>
-                    document.addEventListener('DOMContentLoaded', function(event) { 
-                        jQuery(document).ready(function(){
-                            timeout = setTimeout(hideMessage, 3000);
+        if($_GET['rdid'] != NULL){
+            $post_id = $_GET['rdid'];
+            $show_override = get_post_meta($post_id, 'show_override', false)[0][0];
+            if($show_override == 'on'){
+                $restriction_method = get_post_meta($post_id, 'restriction_method', false)[0];
+                $show_error_message = get_post_meta($post_id, 'show_error_message', false)[0];
+                $redirect_slug = get_post_meta($post_id, 'redirect_slug', false)[0];
+                $error_message_background_color = get_post_meta($post_id, 'error_message_background_color', false)[0];
+                $error_message_text_color = get_post_meta($post_id, 'error_message_text_color', false)[0];
+                $error_message = get_post_meta($post_id, 'pagepost_access_denied', false)[0];
+                $additional_content = get_post_meta($post_id, 'additional_content', false)[0];
+                $custom_css = get_post_meta($post_id, 'custom_css', false)[0];
+            }else if($show_override == NULL){
+                $restriction_method = get_option('restriction_method');
+                $show_error_message = get_option('show_error_message');
+                $redirect_slug = get_option('redirect_slug');
+                $error_message_background_color = get_option('error_message_background_color');
+                $error_message_text_color = get_option('error_message_text_color');
+                $error_message = get_option('pagepost_access_denied');
+                $additional_content = get_option('additional_content');
+                $custom_css = get_option('custom_css');
+            }
+            if($additional_content != ''){$margin = '100px';}
+            else{$margin = '0';}
+            echo  '<style>
+                    .access-error-message{
+                        color: '.$error_message_text_color.';
+                        background:  '.$error_message_background_color.';
+                        padding: 30px;
+                        text-align: center;
+                        margin-bottom: '.$margin.';
+                    }                   
+                </style>';
+            if ($restriction_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
+                if ($show_error_message){  //show error message for a few seconds then animate to remove
+                    if($additional_content != ""){
+                        $content = '<div class="access-error-message">'.$error_message.'</div>'.$additional_content.$content;
+                    }else{
+                        $content = '<div class="access-error-message">'.$error_message.'</div>'.$content;
+                    }
+                    echo '<style>.access-error-message{margin-top: 100px;}</style>';
+                    echo "<script type='text/javascript'>
+                        document.addEventListener('DOMContentLoaded', function(event) { 
+                            jQuery(document).ready(function(){
+                                timeout = setTimeout(hideMessage, 3000);
+                            });
+                            function hideMessage(){
+                                jQuery('.access-error-message').animate({
+                                    'opacity'   : 0, 
+                                    'height'    : 0, 
+                                    'padding'   : 0, 
+                                    'margin'    : 0
+                                }, 1000, updateUrl);
+                            }
+                            function updateUrl(){
+                                jQuery('.access-error-message').remove();
+                                var url = window.location.href;
+                                url = url.split('?')[0];
+                                window.history.replaceState({}, null, url);
+                            }
                         });
-                        function hideMessage(){
-                            jQuery('.access-error-message').animate({
-                                'opacity'   : 0, 
-                                'height'    : 0, 
-                                'padding'   : 0, 
-                                'margin'    : 0
-                            }, 1000, updateUrl);
-                        }
-                        function updateUrl(){
-                            jQuery('.access-error-message').remove();
-                            var url = window.location.href;
-                            url = url.split('?')[0];
-                            window.history.replaceState({}, null, url);
-                        }
-                    });
-                    </script>";
+                        </script>";
+                }
             }
         }
     }return $content;
