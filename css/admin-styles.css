@@ -1,39 +1,39 @@
-.form-table{
+#page-overrides.form-table{
     table-layout: fixed;
     background: #fff;
     max-width: 1000px;
     box-shadow: 0 0 30px 0 rgb(0 0 0 / 10%);
 }
-.form-table .wp-color-picker{display: block;}
-.form-table tr th{
+#page-overrides.form-table .wp-color-picker{display: block;}
+#page-overrides.form-table tr th{
     padding: 20px 30px 20px;
     border-bottom: 1px solid #d5d5d5;
     text-transform: uppercase;
     font-weight: 700;
     background: #f7f7f7;
 }
-.form-table tr td{
+#page-overrides.form-table tr td{
     padding: 30px;
     vertical-align: top;
 }
-.form-table + .submit{
+#page-overrides.form-table + .submit{
     max-width: 1000px;
     text-align: right;
 }
-.form-table + .submit input[type="submit"] {
+#page-overrides.form-table + .submit input[type="submit"] {
     padding: 10px 30px;
     text-transform: uppercase;
     font-weight: 700;
     box-shadow: 0 0 30px 0 rgb(0 0 0 / 10%);
 }
-.form-table td[show='false']{display: none;}
-.form-table textarea{
+#page-overrides.form-table td[show='false']{display: none;}
+#page-overrides.form-table textarea{
     width: 100%;
     min-height: 100px;
 }
-.form-table label {
+#page-overrides.form-table label {
     display: block;
     font-weight: 500;
 }
-.form-table label:not(.inline-check){margin-bottom: 10px !important;}
-.form-table select{width: 100%;}
+#page-overrides.form-table label:not(.inline-check){margin-bottom: 10px !important;}
+#page-overrides.form-table select{width: 100%;}
