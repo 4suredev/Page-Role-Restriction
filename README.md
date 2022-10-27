@@ -1,7 +1,8 @@
 # Page Role Restriction
 Adds the option to restrict page access by role and show a custom error message.
 <div style="text-align: center;">
-<img src="https://i.imgur.com/jfJg39H.png" style="margin-bottom: 30px;">
+<img src="https://i.imgur.com/hVgcpWF.png" style="margin-bottom: 30px;">
+<img src="https://i.imgur.com/QvyOl5o.png" style="margin-bottom: 30px;">
 <img src="https://i.imgur.com/6JvHa5C.png">
 </div>
 Restriction Modes:
@@ -12,8 +13,8 @@ Restriction Modes:
 
 Additional Features:
 <ul>
-<li>Customizable error message content. Supports shortcodes.</li>
+<li>Customizable error message content that supports shortcodes</li>
 <li>Customizable styles</li>
-<li>Ability to add custom css</li>
+<li>Add custom css globally or per page</li>
+<li>Set custom rules and styles per page through option overrides</li>
 </ul>
-
