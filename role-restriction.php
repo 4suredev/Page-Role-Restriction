@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.4
+ * Version: 3.0.5
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -24,7 +24,7 @@ function acc_admin_enqueue_scripts($hook) {
     wp_enqueue_style( 'wp-color-picker');
     wp_enqueue_script( 'wp-color-picker');
     wp_enqueue_script('acc-custom-scripts', ACC_PLUGIN_PATH.'js/admin-scripts.js', array('jquery'));
-    wp_enqueue_style('acc-custom-styles', ACC_PLUGIN_PATH.'css/admin-styles.css');
+    if(get_current_screen()->base == 'toplevel_page_acc-default-settings') wp_enqueue_style('acc-custom-styles', ACC_PLUGIN_PATH.'css/admin-styles.css');
 }
 // Edit page/post hooks 
 add_action( 'load-post.php', 'acc_meta_init' );
@@ -32,7 +32,12 @@ add_action( 'load-post-new.php', 'acc_meta_init' );
 add_action( 'load-page.php', 'acc_meta_init' );
 add_action( 'load-page-new.php', 'acc_meta_init' );
 function acc_meta_init(){
-    add_action( 'add_meta_boxes', 'acc_add_post_meta_boxes' );
+    $current_screen = get_current_screen()->id; //current post type slug
+    $allowed_post_types = get_option('allowed_post_types');
+    if(in_array($current_screen, $allowed_post_types)){
+        add_action( 'add_meta_boxes', 'acc_add_post_meta_boxes' );
+    }
+    
     add_action( 'save_post', 'acc_save_post_meta', 10, 2 );
 }
 // Create the meta box to be displayed on the post editor screen. 
@@ -197,6 +202,7 @@ function acc_default_options_init(){
     register_setting( 'acc-default-settings', 'pagepost_access_denied' );
     register_setting( 'acc-default-settings', 'additional_content' );
     register_setting( 'acc-default-settings', 'custom_css' );
+    register_setting( 'acc-default-settings', 'allowed_post_types' );
 }
 function acc_default_settings_options(){
     if(get_current_screen()->base == 'toplevel_page_acc-default-settings'){ ?>
@@ -213,6 +219,7 @@ function acc_default_settings_options(){
             $pagepost_access_denied = get_option('pagepost_access_denied');
             $additional_content = get_option('additional_content');
             $custom_css = get_option('custom_css');
+            $allowed_post_types = get_option('allowed_post_types');
         ?>
         <table id="page-overrides" class="form-table">
             <tr><th colspan=3>Access Manager</th></tr>
@@ -263,6 +270,14 @@ function acc_default_settings_options(){
                 <td colspan=3>
                     <label for="custom_css">Custom CSS</label>
                     <textarea name="custom_css" id="custom_css"><?php echo $custom_css; ?></textarea>
+                </td>
+            </tr>
+            <tr>
+                <td colspan=3>
+                    <label for="allowed_post_types">Enable on the following: </label>
+                    <ul class="post-types-list">
+                        <?php echo acc_get_all_post_types(); ?>
+                    </ul>
                 </td>
             </tr>
         </table>
@@ -443,4 +458,20 @@ function acc_role_restriction_filter_content($content){
             }
         }
     }return $content;
+}
+function acc_get_all_post_types(){
+    global $wp_post_types;
+    $acc_post_types = '';
+    $allowed_post_types = get_option('allowed_post_types');
+    foreach ( $wp_post_types as $type ) {
+        if ( isset( $type) && !$type->exclude_from_search && $type->name != 'attachment') {
+            if(!$allowed_post_types) $checked = 'checked';
+            if(in_array($type->name, $allowed_post_types)) $checked = 'checked';
+            else{
+                $checked = '';
+            }
+            $acc_post_types .= '<li><label for="'.$type->name.'"><input type="checkbox" name="allowed_post_types[]" id="'.$type->name.'" value="'.$type->name.'" '.$checked.'/> '.$type->label.'</label></li>';
+        }
+    }
+    return $acc_post_types;
 }
