@@ -214,7 +214,7 @@ function acc_default_settings_options(){
             $additional_content = get_option('additional_content');
             $custom_css = get_option('custom_css');
         ?>
-        <table class="form-table">
+        <table id="page-overrides" class="form-table">
             <tr><th colspan=3>Access Manager</th></tr>
             <tr>
                 <td>
