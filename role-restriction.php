@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.3
+ * Version: 3.0.4
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
