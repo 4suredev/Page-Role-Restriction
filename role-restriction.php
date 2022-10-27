@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.2
+ * Version: 3.0.3
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -26,7 +26,7 @@ function acc_admin_enqueue_scripts($hook) {
     wp_enqueue_script('acc-custom-scripts', ACC_PLUGIN_PATH.'js/admin-scripts.js', array('jquery'));
     wp_enqueue_style('acc-custom-styles', ACC_PLUGIN_PATH.'css/admin-styles.css');
 }
-/* Edit page/post hooks */
+// Edit page/post hooks 
 add_action( 'load-post.php', 'acc_meta_init' );
 add_action( 'load-post-new.php', 'acc_meta_init' );
 add_action( 'load-page.php', 'acc_meta_init' );
@@ -35,7 +35,7 @@ function acc_meta_init(){
     add_action( 'add_meta_boxes', 'acc_add_post_meta_boxes' );
     add_action( 'save_post', 'acc_save_post_meta', 10, 2 );
 }
-/* Create one or more meta boxes to be displayed on the post editor screen. */
+// Create the meta box to be displayed on the post editor screen. 
 function acc_add_post_meta_boxes() {
     add_meta_box(
         'acc-page-options',
@@ -46,7 +46,7 @@ function acc_add_post_meta_boxes() {
         'default' 
     );
 }
-/* Display the post meta box. */
+// Display the post meta box.
 function acc_page_options_meta_box( $post ) { 
     wp_nonce_field( basename( __FILE__ ), 'acc_page_options_nonce' );
     $post_id = $post->ID;
@@ -94,7 +94,7 @@ function acc_page_options_meta_box( $post ) {
                         <option value="stay" <?php if($restriction_method == 'stay') echo 'selected'; ?>>Stay on current page</option>
                     </select>
                 </td>
-                <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect') echo 'true'; else echo 'false'; ?>">
+                <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect' || $restriction_method == '') echo 'true'; else echo 'false'; ?>">
                     <label for="redirect_slug">Redirect Slug</label>
                     <select id="redirect_slug" name="redirect_slug">
                         <?php echo acc_get_page_list(true, $post_id); ?>
@@ -138,13 +138,14 @@ function acc_page_options_meta_box( $post ) {
         </table>
     <?php 
 }
+// Save validation for post meta
 function acc_save_post_meta( $post_id, $post ) {
-    /* Verify the nonce before proceeding. */
+    // Verify the nonce before proceeding.
     if ( !isset( $_POST['acc_page_options_nonce'] ) || !wp_verify_nonce( $_POST['acc_page_options_nonce'], basename( __FILE__ ) ) ){
         return $post_id;
     }
     $post_type = get_post_type_object( $post->post_type );
-     /* Verify user capabilities. */
+    // Verify user capabilities.
     if ( !current_user_can( $post_type->cap->edit_post, $post_id ) ){
         return $post_id;
     }
@@ -177,6 +178,7 @@ function acc_save_post_meta( $post_id, $post ) {
     }
   
 }
+// Create the default options page
 add_action('admin_menu', 'acc_default_settings_menu');
 function acc_default_settings_menu() {
     global $submenu;
@@ -297,7 +299,7 @@ function acc_get_page_list($is_page, $post_id) {
     }
     return $field_options;
 }
-// Redirection content filter 
+// Content filter logic
 add_filter('the_content', 'acc_role_restriction_filter_content');
 function acc_role_restriction_filter_content($content){
     if (in_the_loop()){ //only affeect the body content
@@ -306,7 +308,7 @@ function acc_role_restriction_filter_content($content){
         $user = wp_get_current_user();
         $user_roles = (array) $user->roles;
         $show_override = get_post_meta($post_id, 'show_override', false)[0][0];
-        if($show_override == 'on'){
+        if($show_override == 'on'){ //use page options if override is enabled
             $restriction_method = get_post_meta($post_id, 'restriction_method', false)[0];
             $show_error_message = get_post_meta($post_id, 'show_error_message', false)[0];
             $redirect_slug = get_post_meta($post_id, 'redirect_slug', false)[0];
@@ -315,7 +317,7 @@ function acc_role_restriction_filter_content($content){
             $error_message = get_post_meta($post_id, 'pagepost_access_denied', false)[0];
             $additional_content = get_post_meta($post_id, 'additional_content', false)[0];
             $custom_css = get_post_meta($post_id, 'custom_css', false)[0];
-        }else if($show_override == NULL){
+        }else if($show_override == NULL){ //use default options
             $restriction_method = get_option('restriction_method');
             $show_error_message = get_option('show_error_message');
             $redirect_slug = get_option('redirect_slug');
@@ -343,7 +345,7 @@ function acc_role_restriction_filter_content($content){
                 if ($restriction_method == 'redirect'){
                     if (!is_page($redirect_slug)){
                         if($redirect_slug == 'home') {$redirect_slug = '';}
-                        wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true&rdid='.$post_id); //set the redirect path, add redirected variable to make error message appear on the page
+                        wp_safe_redirect(home_url().'/'.$redirect_slug.'?redirected=true&rdid='.$post_id); //set the redirect path, add redirected variable and origin page ID to make error message appear on the page
                     }
                 }else if ($restriction_method == 'stay'){
                     if ($show_error_message){
@@ -353,21 +355,24 @@ function acc_role_restriction_filter_content($content){
                         }
                     }else{
                         if ($additional_content != ""){
-                            $content = '<div class="additional-content">'.$additional_content.'</div>';
+                            $content = '<div class="additional-content">'.$additional_content.'</div>'; //replace page content with additional content
                         }else{
-                            $content = '';
+                            $content = ''; //hide content without any messages on the page
                         }
                     }
                 }  
             }else{ //if user role is in the allowed array
                 foreach($matched_roles as $role){
+                    /* 
+                        Potential feature that could be added here: maybe have the option to let the user select custom redirects per 
+                        user role. This option will be available per page. This could be worked on a separate "development" branch
+
+                        -Carlo
+                    */
                     //per role validation here
                     // if ($role == "role1"){}
                     // else if ($role == "role2"){}
                     // else{}
-
-                    // Potential feature that could be added here: maybe have the option to let the user select custom redirects per 
-                    // user role. This option will be available per page. You can work on this on a separate "development" branch
                 }
             }
         }
@@ -408,7 +413,7 @@ function acc_role_restriction_filter_content($content){
             if ($restriction_method == 'redirect' && is_page($redirect_slug) && $_GET['redirected'] && !wp_get_referer()){    
                 if ($show_error_message){  //show error message for a few seconds then animate to remove
                     if($additional_content != ""){
-                        $content = '<div class="access-error-message">'.$error_message.'</div>'.$additional_content.$content;
+                        $content = '<div class="access-error-message">'.$error_message.'</div>'.$additional_content.$content; //insert additional content below error message
                     }else{
                         $content = '<div class="access-error-message">'.$error_message.'</div>'.$content;
                     }
