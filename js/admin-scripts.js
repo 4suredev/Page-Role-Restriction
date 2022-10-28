@@ -27,4 +27,5 @@ jQuery(document).ready(function($){
             }
         }
     })
+    wp.codeEditor.initialize($('.access-manager-wrapper textarea#custom_css'), cm_settings);
 })

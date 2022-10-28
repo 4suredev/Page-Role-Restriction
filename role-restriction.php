@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.5
+ * Version: 3.0.6
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -25,6 +25,11 @@ function acc_admin_enqueue_scripts($hook) {
     wp_enqueue_script( 'wp-color-picker');
     wp_enqueue_script('acc-custom-scripts', ACC_PLUGIN_PATH.'js/admin-scripts.js', array('jquery'));
     if(get_current_screen()->base == 'toplevel_page_acc-default-settings') wp_enqueue_style('acc-custom-styles', ACC_PLUGIN_PATH.'css/admin-styles.css');
+    $cm_settings['codeEditor'] = wp_enqueue_code_editor(array('type' => 'text/css'));
+    wp_localize_script('jquery', 'cm_settings', $cm_settings);
+    
+    wp_enqueue_script('wp-theme-plugin-editor');
+    wp_enqueue_style('wp-codemirror');
 }
 // Edit page/post hooks 
 add_action( 'load-post.php', 'acc_meta_init' );
@@ -36,8 +41,8 @@ function acc_meta_init(){
     $allowed_post_types = get_option('allowed_post_types');
     if(in_array($current_screen, $allowed_post_types)){
         add_action( 'add_meta_boxes', 'acc_add_post_meta_boxes' );
+        wp_enqueue_style('acc-custom-styles', ACC_PLUGIN_PATH.'css/admin-styles.css');
     }
-    
     add_action( 'save_post', 'acc_save_post_meta', 10, 2 );
 }
 // Create the meta box to be displayed on the post editor screen. 
@@ -85,62 +90,64 @@ function acc_page_options_meta_box( $post ) {
         </ul>
         <p><b>Restriction Settings</b></p>
         <label for="show_override" class="inline-check"><input type="checkbox" name="show_override[]" id="show_override"<?php if($show_override) echo 'checked'; ?>  class="field"/> Override Default Settings</label>
-        <table id="page-overrides" class="form-table" style="max-width: unset; <?php if(!$show_override) echo 'display: none;'; ?>">
-            <tr>
-                <th colspan=3>
-                    <p style="font-size: 20px; margin: 0;"><b>Page Overrides</b></p>
-                </th>
-            </tr>
-            <tr>
-                <td>
-                    <label for="restriction_method">Restriction Method</label>
-                    <select id="restriction_method" name="restriction_method" conditional-formatting="true" data-condition="restriction_method" class="field">
-                        <option value="redirect" <?php if($restriction_method == 'redirect') echo 'selected'; ?>>Redirect</option>
-                        <option value="stay" <?php if($restriction_method == 'stay') echo 'selected'; ?>>Stay on current page</option>
-                    </select>
-                </td>
-                <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect' || $restriction_method == '') echo 'true'; else echo 'false'; ?>">
-                    <label for="redirect_slug">Redirect Slug</label>
-                    <select id="redirect_slug" name="redirect_slug">
-                        <?php echo acc_get_page_list(true, $post_id); ?>
-                    </select>
-                    <p style="font-size: 0.8em;">Select the page redirect destination.</p>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
-                </td>
-                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
-                    <label for="error_message_background_color">Error message background color</label>
-                    <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
-                </td>
-                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
-                    <label for="error_message_text_color">Error message text color</label>
-                    <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
-                </td>
-            </tr>
-            <tr>
-                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?> colspan=3>
-                    <label for="pagepost_access_denied">Error message</label>
-                    <textarea name="pagepost_access_denied" id="pagepost_access_denied"><?php echo $pagepost_access_denied; ?></textarea>
-                </td>
-            </tr>
-            <tr>
-                <td colspan=3>
-                    <label for="additional_content">Content below</label>
-                    <?php 
-                    wp_editor( $additional_content, 'additional_content', array() );
-                     ?>
-                </td>
-            </tr>
-            <tr>
-                <td colspan=3>
-                    <label for="custom_css">Custom CSS</label>
-                    <textarea name="custom_css" id="custom_css"><?php echo $custom_css; ?></textarea>
-                </td>
-            </tr>
-        </table>
+        <div class="access-manager-wrapper" style="grid-template-columns: 1fr; margin: 0;">
+            <table id="page-overrides" class="form-table" style="<?php if(!$show_override) echo 'display: none;'; ?>">
+                <tr>
+                    <th colspan=3>
+                        <p style="font-size: 20px; margin: 0;"><b>Page Overrides</b></p>
+                    </th>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="restriction_method">Restriction Method</label>
+                        <select id="restriction_method" name="restriction_method" conditional-formatting="true" data-condition="restriction_method" class="field">
+                            <option value="redirect" <?php if($restriction_method == 'redirect') echo 'selected'; ?>>Redirect</option>
+                            <option value="stay" <?php if($restriction_method == 'stay') echo 'selected'; ?>>Stay on current page</option>
+                        </select>
+                    </td>
+                    <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect' || $restriction_method == '') echo 'true'; else echo 'false'; ?>">
+                        <label for="redirect_slug">Redirect Slug</label>
+                        <select id="redirect_slug" name="redirect_slug">
+                            <?php echo acc_get_page_list(true, $post_id); ?>
+                        </select>
+                        <p style="font-size: 0.8em;">Select the page redirect destination.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
+                    </td>
+                    <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                        <label for="error_message_background_color">Error message background color</label>
+                        <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
+                    </td>
+                    <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                        <label for="error_message_text_color">Error message text color</label>
+                        <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?> colspan=3>
+                        <label for="pagepost_access_denied">Error message</label>
+                        <textarea name="pagepost_access_denied" id="pagepost_access_denied"><?php echo $pagepost_access_denied; ?></textarea>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan=3>
+                        <label for="additional_content">Insert content</label>
+                        <?php 
+                        wp_editor( $additional_content, 'additional_content', array() );
+                        ?>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan=3>
+                        <label for="custom_css">Custom CSS</label>
+                        <textarea name="custom_css" id="custom_css"><?php echo $custom_css; ?></textarea>
+                    </td>
+                </tr>
+            </table>
+        </div>
     <?php 
 }
 // Save validation for post meta
@@ -206,7 +213,7 @@ function acc_default_options_init(){
 }
 function acc_default_settings_options(){
     if(get_current_screen()->base == 'toplevel_page_acc-default-settings'){ ?>
-    <h1>Access Manager Default Settings</h1>
+    <h1 style="margin: 50px 0;">Access Manager Default Settings</h1>
     <form method="post" action="options.php"> 
         <?php settings_fields( 'acc-default-settings' ); ?>
         <?php do_settings_sections( 'acc-default-settings' ); ?>
@@ -221,66 +228,71 @@ function acc_default_settings_options(){
             $custom_css = get_option('custom_css');
             $allowed_post_types = get_option('allowed_post_types');
         ?>
-        <table id="page-overrides" class="form-table">
-            <tr><th colspan=3>Access Manager</th></tr>
-            <tr>
-                <td>
-                    <label for="restriction_method">Restriction Method</label>
-                    <select id="restriction_method" name="restriction_method" conditional-formatting="true" data-condition="restriction_method" class="field">
-                        <option value="redirect" <?php if($restriction_method == 'redirect') echo 'selected'; ?>>Redirect</option>
-                        <option value="stay" <?php if($restriction_method == 'stay') echo 'selected'; ?>>Stay on current page</option>
-                    </select>
-                </td>
-                <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect') echo 'true'; else echo 'false'; ?>">
-                    <label for="redirect_slug">Redirect Slug</label>
-                    <select id="redirect_slug" name="redirect_slug">
-                        <?php echo acc_get_page_list(false, ''); ?>
-                    </select>
-                    <p style="font-size: 0.8em;">Select the page redirect destination.</p>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
-                </td>
-                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
-                    <label for="error_message_background_color">Error message background color</label>
-                    <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
-                </td>
-                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
-                    <label for="error_message_text_color">Error message text color</label>
-                    <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
-                </td>
-            </tr>
-            <tr>
-                <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?> colspan=3>
-                    <label for="pagepost_access_denied">Error message</label>
-                    <textarea name="pagepost_access_denied" id="pagepost_access_denied"><?php echo $pagepost_access_denied; ?></textarea>
-                </td>
-            </tr>
-            <tr>
-                <td colspan=3>
-                    <label for="additional_content">Content below</label>
-                    <?php 
-                    wp_editor( $additional_content, 'additional_content', array() );
-                     ?>
-                </td>
-            </tr>
-            <tr>
-                <td colspan=3>
-                    <label for="custom_css">Custom CSS</label>
-                    <textarea name="custom_css" id="custom_css"><?php echo $custom_css; ?></textarea>
-                </td>
-            </tr>
-            <tr>
-                <td colspan=3>
-                    <label for="allowed_post_types">Enable on the following: </label>
-                    <ul class="post-types-list">
-                        <?php echo acc_get_all_post_types(); ?>
-                    </ul>
-                </td>
-            </tr>
-        </table>
+        <div class="access-manager-wrapper">
+            <table id="page-overrides" class="form-table">
+                <tr><th colspan=3>Access Manager Settings</th></tr>
+                <tr>
+                    <td>
+                        <label for="restriction_method">Restriction Method</label>
+                        <select id="restriction_method" name="restriction_method" conditional-formatting="true" data-condition="restriction_method" class="field">
+                            <option value="redirect" <?php if($restriction_method == 'redirect') echo 'selected'; ?>>Redirect</option>
+                            <option value="stay" <?php if($restriction_method == 'stay') echo 'selected'; ?>>Stay on current page</option>
+                        </select>
+                    </td>
+                    <td condition="restriction_method" condition-value="redirect" show="<?php if($restriction_method == 'redirect') echo 'true'; else echo 'false'; ?>">
+                        <label for="redirect_slug">Redirect Slug</label>
+                        <select id="redirect_slug" name="redirect_slug">
+                            <?php echo acc_get_page_list(false, ''); ?>
+                        </select>
+                        <p style="font-size: 0.8em;">Select the page redirect destination.</p>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
+                    </td>
+                    <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                        <label for="error_message_background_color">Error message background color</label>
+                        <input type="text" class="color-picker" name="error_message_background_color" id="error_message_background_color" value="<?php echo $error_message_background_color; ?>"/>
+                    </td>
+                    <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
+                        <label for="error_message_text_color">Error message text color</label>
+                        <input type="text" class="color-picker" name="error_message_text_color" id="error_message_text_color" value="<?php echo $error_message_text_color; ?>"/>
+                    </td>
+                </tr>
+                <tr>
+                    <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?> colspan=3>
+                        <label for="pagepost_access_denied">Error message</label>
+                        <textarea name="pagepost_access_denied" id="pagepost_access_denied"><?php echo $pagepost_access_denied; ?></textarea>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan=3>
+                        <label for="additional_content">Insert content</label>
+                        <?php 
+                        wp_editor( $additional_content, 'additional_content', array() );
+                        ?>
+                    </td>
+                </tr>
+                <tr>
+                    <td colspan=3>
+                        <label for="custom_css">Custom CSS</label>
+                        <textarea name="custom_css" id="custom_css"><?php echo $custom_css; ?></textarea>
+                    </td>
+                </tr>
+            </table>
+            <table id="test" class="form-table">
+                <tr><th>General Settings</th></tr>
+                <tr>
+                    <td>
+                        <label for="allowed_post_types">Enable on the following: </label>
+                        <ul class="post-types-list">
+                            <?php echo acc_get_all_post_types(); ?>
+                        </ul>
+                    </td>
+                </tr>
+            </table>
+        </div>
         <?php submit_button(); ?>
     </form>
     <?php
@@ -466,7 +478,7 @@ function acc_get_all_post_types(){
     foreach ( $wp_post_types as $type ) {
         if ( isset( $type) && !$type->exclude_from_search && $type->name != 'attachment') {
             if(!$allowed_post_types) $checked = 'checked';
-            if(in_array($type->name, $allowed_post_types)) $checked = 'checked';
+            if(is_array($allowed_post_types) && in_array($type->name, $allowed_post_types)) $checked = 'checked';
             else{
                 $checked = '';
             }
