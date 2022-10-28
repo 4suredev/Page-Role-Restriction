@@ -38,7 +38,13 @@
     font-weight: 700;
     box-shadow: 0 0 30px 0 rgb(0 0 0 / 10%);
 }
+.acc-page-options div.schedule-wrap[show='false'],
 .access-manager-wrapper .form-table td[show='false']{display: none;}
+.acc-page-options div.schedule-wrap[show='true']{
+    display: flex; 
+    flex-direction: column; 
+    margin-top: 20px;
+}
 .access-manager-wrapper .form-table textarea{
     width: 100%;
     min-height: 100px;
@@ -103,6 +109,11 @@
 	top: 3px;
 	background-color: #fff;
 }
+.acc-page-options{
+    table-layout: fixed;
+    width: 100%;
+}
+.acc-page-options td{vertical-align: top;}
 @media (max-width: 782px){
     .access-manager-wrapper{
         grid-template-columns: 1fr;

@@ -7,8 +7,14 @@ jQuery(document).ready(function($){
         var condition = $(this).attr('data-condition');    
         if(el == 'INPUT' && $(this).attr('type') == 'checkbox'){
             var val = $(this).is(':checked');
-            if(val) { $('td[condition="'+condition+'"]').attr('show', 'true'); }
-            else {$('td[condition="'+condition+'"]').attr('show', 'false'); }
+            if(val) { 
+                $('td[condition="'+condition+'"]').attr('show', 'true'); 
+                $('div[condition="'+condition+'"]').attr('show', 'true'); 
+            }
+            else {
+                $('td[condition="'+condition+'"]').attr('show', 'false'); 
+                $('div[condition="'+condition+'"]').attr('show', 'false'); 
+            }
         }
         else if (el == 'SELECT'){
             var val = $(this).val();
