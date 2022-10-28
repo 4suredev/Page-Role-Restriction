@@ -3,7 +3,7 @@
  * Plugin Name: Access Manager - Restrict Pages/Posts by User Role
  * Plugin URI: https://4sure.com.au
  * Description: Enable user role restriction per page or post. Requires ACF Pro
- * Version: 3.0.6
+ * Version: 3.0.7
  * Author: 4sure
  * Author URI: https://4sure.com.au
  */
@@ -27,7 +27,6 @@ function acc_admin_enqueue_scripts($hook) {
     if(get_current_screen()->base == 'toplevel_page_acc-default-settings') wp_enqueue_style('acc-custom-styles', ACC_PLUGIN_PATH.'css/admin-styles.css');
     $cm_settings['codeEditor'] = wp_enqueue_code_editor(array('type' => 'text/css'));
     wp_localize_script('jquery', 'cm_settings', $cm_settings);
-    
     wp_enqueue_script('wp-theme-plugin-editor');
     wp_enqueue_style('wp-codemirror');
 }
@@ -60,17 +59,27 @@ function acc_add_post_meta_boxes() {
 function acc_page_options_meta_box( $post ) { 
     wp_nonce_field( basename( __FILE__ ), 'acc_page_options_nonce' );
     $post_id = $post->ID;
-    $default_restriction_method = get_option('restriction_method');
     $postmeta = maybe_unserialize( get_post_meta( $post_id, 'acc_page_options', true ) );
     $show_override = maybe_unserialize( get_post_meta($post_id,'show_override', false) )[0]; 
-    $restriction_method = maybe_unserialize( get_post_meta($post_id,'restriction_method', false) )[0]; 
-    $show_error_message = maybe_unserialize( get_post_meta($post_id,'show_error_message', false) )[0]; 
-    $redirect_slug = maybe_unserialize( get_post_meta($post_id,'redirect_slug', false) )[0]; 
-    $error_message_background_color = maybe_unserialize( get_post_meta($post_id,'error_message_background_color', false) )[0]; 
-    $error_message_text_color = maybe_unserialize( get_post_meta($post_id,'error_message_text_color', false) )[0]; 
-    $pagepost_access_denied = maybe_unserialize( get_post_meta($post_id,'pagepost_access_denied', false) )[0]; 
-    $additional_content = (string) maybe_unserialize( get_post_meta($post_id,'additional_content', false) )[0]; 
-    $custom_css = maybe_unserialize( get_post_meta($post_id,'custom_css', false) )[0]; 
+    if(!$show_override){ //default value taken from global options
+        $restriction_method = get_option('restriction_method');
+        $show_error_message = get_option('show_error_message');
+        $redirect_slug = get_option('redirect_slug');
+        $error_message_background_color = get_option('error_message_background_color');
+        $error_message_text_color = get_option('error_message_text_color');
+        $pagepost_access_denied = get_option('pagepost_access_denied');
+        $additional_content = get_option('additional_content');
+        $custom_css = get_option('custom_css');
+    }else{
+        $restriction_method = maybe_unserialize( get_post_meta($post_id,'restriction_method', false) )[0]; 
+        $show_error_message = maybe_unserialize( get_post_meta($post_id,'show_error_message', false) )[0]; 
+        $redirect_slug = maybe_unserialize( get_post_meta($post_id,'redirect_slug', false) )[0]; 
+        $error_message_background_color = maybe_unserialize( get_post_meta($post_id,'error_message_background_color', false) )[0]; 
+        $error_message_text_color = maybe_unserialize( get_post_meta($post_id,'error_message_text_color', false) )[0]; 
+        $pagepost_access_denied = maybe_unserialize( get_post_meta($post_id,'pagepost_access_denied', false) )[0]; 
+        $additional_content = (string) maybe_unserialize( get_post_meta($post_id,'additional_content', false) )[0]; 
+        $custom_css = maybe_unserialize( get_post_meta($post_id,'custom_css', false) )[0]; 
+    }
    ?>   <p><b>Users that can access this page</b></p>
         <p style="font-size: 0.8em; color: ccc;">leave blank to allow all</p>
         <ul class="user-roles-list" style="margin-bottom: 20px;">
@@ -82,14 +91,14 @@ function acc_page_options_meta_box( $post ) {
                         if ( is_array( $postmeta ) && in_array( $key, $postmeta ) ) { $checked = 'checked="checked"'; } 
                         else { $checked = null; }   
                         ?><li>
-                            <label for="<?php echo $key; ?>"><input type="checkbox" name="allowedroles[]" id="<?php echo $key; ?>" value="<?php echo $key; ?>" <?php echo $checked; ?>/> <?php echo $role['name']; ?></label>
+                            <label for="<?php echo $key; ?>" class="toggler-wrapper"><input type="checkbox" name="allowedroles[]" id="<?php echo $key; ?>" value="<?php echo $key; ?>" <?php echo $checked; ?>/><div class="toggler-slider"><div class="toggler-knob"></div></div><span> <?php echo $role['name']; ?></span></label>
                         </li><?php
                     }
                 }
             ?>
         </ul>
         <p><b>Restriction Settings</b></p>
-        <label for="show_override" class="inline-check"><input type="checkbox" name="show_override[]" id="show_override"<?php if($show_override) echo 'checked'; ?>  class="field"/> Override Default Settings</label>
+        <label for="show_override" class="inline-check toggler-wrapper"><input type="checkbox" name="show_override[]" id="show_override"<?php if($show_override) echo 'checked'; ?>  class="field"/><div class="toggler-slider"><div class="toggler-knob"></div></div><span> Override Default Settings</span></label>
         <div class="access-manager-wrapper" style="grid-template-columns: 1fr; margin: 0;">
             <table id="page-overrides" class="form-table" style="<?php if(!$show_override) echo 'display: none;'; ?>">
                 <tr>
@@ -115,7 +124,7 @@ function acc_page_options_meta_box( $post ) {
                 </tr>
                 <tr>
                     <td>
-                        <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
+                        <label for="show_error_message" class="inline-check toggler-wrapper"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/><div class="toggler-slider"><div class="toggler-knob"></div></div><span> Show Error Message</span></label>
                     </td>
                     <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
                         <label for="error_message_background_color">Error message background color</label>
@@ -249,7 +258,7 @@ function acc_default_settings_options(){
                 </tr>
                 <tr>
                     <td>
-                        <label for="show_error_message" class="inline-check"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/> Show Error Message</label>
+                        <label for="show_error_message" class="inline-check toggler-wrapper"><input type="checkbox" name="show_error_message" <?php if($show_error_message) echo 'checked'; ?> conditional-formatting="true" data-condition="show_error_message" id="show_error_message"  class="field"/><div class="toggler-slider"><div class="toggler-knob"></div></div><span> Show Error Message</span></label>
                     </td>
                     <td condition="show_error_message" <?php if($show_error_message) echo 'show="true"'; else echo 'show="false"'; ?>>
                         <label for="error_message_background_color">Error message background color</label>
@@ -329,7 +338,9 @@ function acc_get_page_list($is_page, $post_id) {
 // Content filter logic
 add_filter('the_content', 'acc_role_restriction_filter_content');
 function acc_role_restriction_filter_content($content){
-    if (in_the_loop()){ //only affeect the body content
+    $current_screen = get_post_type(); //current post type slug
+    $allowed_post_types = get_option('allowed_post_types');
+    if (in_the_loop() && in_array($current_screen, $allowed_post_types)){ //only affeect the body content and the allowed post types in the global settings
         $post_id = get_the_id();
         $role_restrictions = (array) get_post_meta( $post_id, 'acc_page_options', true ); 
         $user = wp_get_current_user();
@@ -482,7 +493,10 @@ function acc_get_all_post_types(){
             else{
                 $checked = '';
             }
-            $acc_post_types .= '<li><label for="'.$type->name.'"><input type="checkbox" name="allowed_post_types[]" id="'.$type->name.'" value="'.$type->name.'" '.$checked.'/> '.$type->label.'</label></li>';
+            $acc_post_types .= '<li>
+            <label for="'.$type->name.'" class="toggler-wrapper">
+            <input type="checkbox" name="allowed_post_types[]" id="'.$type->name.'" value="'.$type->name.'" '.$checked.'/>
+            <div class="toggler-slider"><div class="toggler-knob"></div></div><span>'.$type->label.'</span></label></li>';
         }
     }
     return $acc_post_types;
